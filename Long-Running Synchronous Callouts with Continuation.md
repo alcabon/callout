@@ -1,4 +1,4 @@
-# callout with continuation
+# Long-Running Synchronous Callouts with Continuation
 
 ```mermaid
 sequenceDiagram
