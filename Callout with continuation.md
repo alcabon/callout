@@ -199,8 +199,6 @@ export default class ContinuationSpinner extends LightningElement {
 
 ```
 
-```apex
-
 ## Lightning Web Component
 
 **JavaScript** (`continuationSpinner.js`)
