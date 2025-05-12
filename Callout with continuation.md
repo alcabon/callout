@@ -31,6 +31,76 @@ sequenceDiagram
     deactivate LWC
 ```
 
+A simple “request-and-reply” invoked from a Lightning Web Component button typically looks like this: the user clicks, the client calls an @AuraEnabled Apex method that performs an HTTP callout synchronously, and a spinner shows until the response arrives. While this works for fast services, it encounters two key drawbacks when the external system is slow or unpredictable:
+
+## Synchronous Request-Reply with Spinner
+
+- The Apex transaction invokes `Http.send()` and blocks until the external service responds.
+- The LWC shows a `<lightning-spinner>` via an `await` or promise, hiding it in a `finally` block.
+- If the service takes longer than 120 seconds, Salesforce throws a timeout error, the transaction fails, and the spinner may never hide before the error surfaces[^1].
+
+
+## Problems with Long-Running Synchronous Callouts
+
+- **120-Second Callout Limit**: All synchronous Apex callouts must complete within 120 seconds or they’re aborted by the platform[^4].
+- **Blocked Server Resources**: The Apex thread remains occupied, counting against CPU and heap limits, even while simply waiting.
+- **Poor User Experience**: If a callout approaches the timeout threshold, users face a hanging spinner and eventual error rather than a seamless retry or background processing.
+
+
+## Continuation Pattern Benefits
+
+- **Bypasses the 120-Second Limit**: Continuations break the callout out of the original transaction, so you’re no longer bound by the synchronous timeout[^1].
+- **Immediate Response to the Client**: The Apex method marked `@AuraEnabled(continuation=true)` returns control to the LWC instantly, allowing the spinner to manage only client-side waiting without tying up server CPU[^4].
+- **Callback-Driven Completion**: When the external system finally responds, Salesforce re-invokes your continuation callback method to process the response and return data to the UI[^2].
+- **Enhanced Scalability**: Server resources are freed during the external wait, reducing the risk of hitting governor limits under high load.
+
+In short, adding a Continuation transforms a blocking, timeout-prone request-reply into a non-blocking, governor-limit-friendly pattern: your LWC spinner still indicates “in progress,” but the heavy lifting happens off-thread, and you retrieve results via a callback once they’re ready.
+
+<div style="text-align: center">⁂</div>
+
+[^1]: https://sfdcarjuna.com/2021/03/05/request-and-reply/
+
+[^2]: https://sfdcarjuna.com/2021/03/05/request-and-reply/
+
+[^3]: https://developer.salesforce.com/blogs/2020/05/apex-continuations-implementation-and-testing-in-aura-lwc
+
+[^4]: https://www.linkedin.com/posts/kkteja_apex-continuation-design-pattern-in-simple-activity-7093417968767807489-F3St
+
+[^5]: https://www.salesforcechacha.com/p/patience-is-a-virtue
+
+[^6]: https://www.grazitti.com/blog/decoding-salesforce-integration-patterns-and-best-practices-for-better-efficiency/
+
+[^7]: https://salesforce.stackexchange.com/questions/251414/lightning-continuation-callout-pattern-does-not-respect-user-permissions
+
+[^8]: https://www.sfdcstop.com/2020/12/salesforce-lwc-tutorial-part-7-wrapping.html
+
+[^9]: https://developer.salesforce.com/docs/atlas.en-us.integration_patterns_and_practices.meta/integration_patterns_and_practices/integ_pat_remote_process_invocation_state.htm
+
+[^10]: https://www.mstsolutions.com/technical/long-running-callouts-in-salesforce/
+
+[^11]: https://stackoverflow.com/questions/66138107/showing-customer-spinner-for-5-seconds-after-which-show-content
+
+[^12]: https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_continuation_overview.htm
+
+[^13]: https://salesforce.stackexchange.com/questions/tagged/continuation
+
+[^14]: https://salesforcefaqs.com/make-rest-api-callout-using-lightning-web-component-in-salesforce/
+
+[^15]: https://developer.salesforce.com/docs/platform/lwc/guide/apex-continuations.html
+
+[^16]: https://salesforce.stackexchange.com/questions/207162/parallel-callouts-in-apex
+
+[^17]: https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Continuation.htm
+
+[^18]: https://help.salesforce.com/s/articleView?id=release-notes.rn_lc_continuations.htm\&language=sv\&release=220\&type=5
+
+[^19]: https://developer.salesforce.com/docs/atlas.en-us.lightning.meta/lightning/apex_continuations.htm
+
+[^20]: https://stackoverflow.com/questions/61332655/showing-a-loading-indicator-while-calling-apex-in-salesforce-lwc
+
+[^21]: https://trailhead.salesforce.com/trailblazer-community/feed/0D54V00007T499cSAB
+
+[^22]: https://www.linkedin.com/pulse/understanding-javascript-promises-asynchronous-lwc-vaishnav-2mv5f
 
 
 Below is a complete example showing how to invoke an Apex Continuation from a Lightning Web Component button click, display a spinner while the callout is in progress, and then handle the response once it returns.
