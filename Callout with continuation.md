@@ -158,6 +158,43 @@ public with sharing class ContinuationCalloutController {
 - The `@AuraEnabled(continuation=true)` annotation marks the method as returning a Continuation, which defers completion until the external service responds[^4].
 - The `handleResponse` method retrieves the HTTP response and returns its body to the client[^4].
 
+```javascript
+// continuationSpinner.js
+import { LightningElement, track } from 'lwc';
+// Import your @AuraEnabled(continuation=true) method
+import startLongRunningRequest from '@salesforce/apex/ContinuationCalloutController.startLongRunningRequest';
+
+export default class ContinuationSpinner extends LightningElement {
+  @track showSpinner = false;
+  @track responseBody;
+  @track error;
+
+  // This is the helper that kicks off the Continuation call.
+  // The returned promise only resolves when your callback (handleResponse)
+  // returns its value.
+  invokeContinuation() {
+    return startLongRunningRequest();
+  }
+
+  handleClick() {
+    this.showSpinner = true;
+    this.responseBody = undefined;
+    this.error = undefined;
+
+    this.invokeContinuation()
+      .then(result => {
+        // 'result' is whatever your apex handleResponse() returned (e.g. res.getBody())
+        this.responseBody = result;
+      })
+      .catch(err => {
+        this.error = err.body ? err.body.message : err.message;
+      })
+      .finally(() => {
+        this.showSpinner = false;
+      });
+  }
+}
+```apex
 
 ## Lightning Web Component
 
