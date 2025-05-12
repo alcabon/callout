@@ -2,19 +2,32 @@
 
 ```mermaid
 sequenceDiagram
-    participant User
+    actor User
     participant LWC as LWC Component
-    participant Apex as ContinuationCalloutController
+    participant Apex as ContinuationController
     participant External as External Service
 
     User->>LWC: Click “Call API” button
+    activate LWC
     LWC->>LWC: showSpinner = true
     LWC->>Apex: startLongRunningRequest()
-    Apex->>Apex: new Continuation(timeout, callback) [2]
-    Apex->>External: HttpRequest added to Continuation [2]
-    Note right of Apex: Original Apex transaction ends
-    External-->>Apex: HTTP response arrives later
-    Apex->>Apex: handleResponse(labels, state) retrieves HttpResponse [2]
-    Apex-->>LWC: return response body
-    LWC->>LWC: showSpinner = false; display result
+    activate Apex
+    Apex-->>LWC: Continuation token (immediate)
+    deactivate Apex
+    Note right of LWC: Spinner remains visible
+
+    %% Asynchronous callout outside original transaction
+    activate Apex
+    Apex->>External: HTTP GET /longRunning
+    External-->>Apex: 200 OK + payload
+    deactivate Apex
+
+    activate Apex
+    Apex-->>LWC: handleResponse(payload)
+    deactivate Apex
+
+    LWC->>LWC: showSpinner = false
+    LWC-->>User: Display result
+    deactivate LWC
+
 ```
